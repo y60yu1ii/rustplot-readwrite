@@ -1,17 +1,21 @@
 #![windows_subsystem = "windows"]
 mod font_loader;
 mod graph;
-mod save_load; // ✅ 引入 `graph.rs`
+mod save_load;
 
-use eframe::egui;
+use eframe::{egui, NativeOptions};
+use egui::{IconData, ViewportBuilder};
 use egui_plot::{Line, Plot, PlotPoints};
-use graph::{Graph, GraphType}; // ✅ 使用 Graph 模組
+use graph::{Graph, GraphType};
+use image::ImageReader;
 use rfd::FileDialog;
 use save_load::DataConfig;
+use std::fs;
+use std::io::Cursor;
 use std::time::{Duration, Instant};
 
-const NUM_TRIANGLE_GRAPHS: usize = 4; // ✅ 4 個遞增遞減波
-const NUM_SIN_GRAPHS: usize = 6; // ✅ 6 個 Sin 波
+const NUM_TRIANGLE_GRAPHS: usize = 4;
+const NUM_SIN_GRAPHS: usize = 6;
 
 struct MyApp {
     config: DataConfig,
@@ -24,12 +28,10 @@ impl MyApp {
         font_loader::load_custom_font(ctx);
         let mut graphs = Vec::new();
 
-        // ✅ 4 個遞增遞減波
         for _ in 0..NUM_TRIANGLE_GRAPHS {
             graphs.push(Graph::new(GraphType::Triangle));
         }
 
-        // ✅ 6 個 Sin 波
         for _ in 0..NUM_SIN_GRAPHS {
             graphs.push(Graph::new(GraphType::SinWave));
         }
@@ -75,7 +77,6 @@ impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let elapsed = self.start_time.elapsed().as_secs_f64();
 
-        // 更新所有圖表數據
         for graph in &mut self.graphs {
             graph.update(elapsed);
         }
@@ -90,7 +91,6 @@ impl eframe::App for MyApp {
             ui.separator();
             ui.heading("即時數據圖表");
 
-            // ✅ 用 ScrollArea 來讓圖表可以滾動
             egui::ScrollArea::vertical().show(ui, |ui| {
                 for (index, graph) in self.graphs.iter().enumerate() {
                     let label = match graph.graph_type {
@@ -100,13 +100,13 @@ impl eframe::App for MyApp {
                     ui.label(label);
 
                     Plot::new(format!("real_time_plot_{}", index))
-                        .height(120.0) // ✅ 調高單個圖表高度，避免擠在一起
-                        .allow_scroll(false) // ❌ 禁止滑鼠滾動影響 Plot
-                        .allow_drag(false) // ❌ 禁止拖動
-                        .allow_zoom(false) // ❌ 禁止縮放
+                        .height(120.0)
+                        .allow_scroll(false)
+                        .allow_drag(false)
+                        .allow_zoom(false)
                         .show(ui, |plot_ui| {
                             let line = Line::new(PlotPoints::from_iter(
-                                graph.data.iter().map(|&(x, y)| [x, y]), // ✅ 轉換成 `[f64; 2]`
+                                graph.data.iter().map(|&(x, y)| [x, y]),
                             ));
                             plot_ui.line(line);
                         });
@@ -119,8 +119,14 @@ impl eframe::App for MyApp {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut options = eframe::NativeOptions::default();
-    options.viewport.inner_size = Some([800.0, 900.0].into()); // ✅ 改小視窗大小，測試 ScrollBar
+    let icon = load_icon("assets/icon.png")?;
+
+    let options = NativeOptions {
+        viewport: ViewportBuilder::default()
+            .with_inner_size([800.0, 900.0])
+            .with_icon(icon), // ✅ 設定應用程式 Icon
+        ..Default::default()
+    };
 
     eframe::run_native(
         "時間數據圖表",
@@ -129,4 +135,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     Ok(())
+}
+
+fn load_icon(path: &str) -> Result<IconData, Box<dyn std::error::Error>> {
+    let image_bytes = fs::read(path)?;
+    let image = ImageReader::new(Cursor::new(image_bytes))
+        .with_guessed_format()?
+        .decode()?
+        .into_rgba8();
+
+    let (width, height) = image.dimensions();
+    let rgba = image.into_raw();
+
+    Ok(IconData {
+        rgba,
+        width,
+        height,
+    })
 }
