@@ -1,31 +1,36 @@
 use eframe::egui::{Context, FontData, FontDefinitions, FontFamily};
-use std::collections::BTreeMap;
-use std::fs;
+use include_dir::{include_dir, Dir};
 use std::sync::Arc;
 
+static ASSETS: Dir = include_dir!("assets/");
+
 pub fn load_custom_font(ctx: &Context) {
-    let font_path = "assets/NotoSansTC-Medium.ttf"; // 確保字型放在這個路徑
+    // 內嵌字體檔案
+    let font_data = ASSETS
+        .get_file("NotoSansTC-Medium.ttf")
+        .expect("⚠️ 無法載入內嵌字體 `NotoSansTC-Medium.ttf`！請確認 `assets/` 內的檔案名稱正確")
+        .contents();
 
-    let mut fonts = FontDefinitions {
-        font_data: BTreeMap::new(),
-        families: BTreeMap::new(),
-    };
+    let mut fonts = FontDefinitions::default();
 
-    if let Ok(font_data) = fs::read(font_path) {
-        fonts.font_data.insert(
-            "custom_font".to_string(),
-            Arc::new(FontData::from_owned(font_data)),
-        );
+    // ✅ 設定 `custom_font` 為內嵌的 `NotoSansTC-Medium.ttf`
+    fonts.font_data.insert(
+        "custom_font".to_string(),
+        Arc::new(FontData::from_owned(font_data.to_vec())),
+    );
 
-        fonts
-            .families
-            .insert(FontFamily::Proportional, vec!["custom_font".to_string()]);
-        fonts
-            .families
-            .insert(FontFamily::Monospace, vec!["custom_font".to_string()]);
+    // 設定 `Proportional` & `Monospace` 使用 `custom_font`
+    fonts
+        .families
+        .entry(FontFamily::Proportional)
+        .or_default()
+        .push("custom_font".to_string());
 
-        ctx.set_fonts(fonts);
-    } else {
-        eprintln!("⚠️ 載入字型失敗: 找不到 `{}`", font_path);
-    }
+    fonts
+        .families
+        .entry(FontFamily::Monospace)
+        .or_default()
+        .push("custom_font".to_string());
+
+    ctx.set_fonts(fonts);
 }

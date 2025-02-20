@@ -1,10 +1,25 @@
 [package]
-name = "rust-serial"
+name = "egui-app"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+bitflags = "2.8.0"
 eframe = "0.31.0"
-egui = "0.31.0"
-serde = { version = "1.0.218", features = ["derive"] }
+include_dir = "0.7.4"
+serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9.34"
+
+[package.metadata.bundle]
+name = "Egui App" # 你的應用名稱
+identifier = "com.example.eguiapp" # 你的應用 ID (通常是反向網域名稱)
+icon = ["assets/icon.icns"] # macOS `.icns` 圖示 (選填)
+resources = ["assets/NotoSansTC-Medium.ttf"]
+category = "public.app-category.utilities"
+short_description = "A simple Egui application"
+long_description = "This is an example application built with egui and Rust."
+
+[[bin]]
+name = "egui-app"
+path = "src/main.rs"
+windows_subsystem = "windows"
