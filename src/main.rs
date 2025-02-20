@@ -10,7 +10,6 @@ use graph::{Graph, GraphType};
 use image::ImageReader;
 use rfd::FileDialog;
 use save_load::DataConfig;
-use std::fs;
 use std::io::Cursor;
 use std::time::{Duration, Instant};
 
@@ -119,12 +118,16 @@ impl eframe::App for MyApp {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let icon = load_icon("assets/icon.png")?;
+    let icon = load_icon().ok();
 
     let options = NativeOptions {
         viewport: ViewportBuilder::default()
             .with_inner_size([800.0, 900.0])
-            .with_icon(icon), // ✅ 設定應用程式 Icon
+            .with_icon(icon.unwrap_or_else(|| IconData {
+                rgba: vec![0; 256 * 256 * 4], // 預設透明圖標
+                width: 256,
+                height: 256,
+            })),
         ..Default::default()
     };
 
@@ -137,8 +140,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn load_icon(path: &str) -> Result<IconData, Box<dyn std::error::Error>> {
-    let image_bytes = fs::read(path)?;
+fn load_icon() -> Result<IconData, Box<dyn std::error::Error>> {
+    let image_bytes = include_bytes!("../assets/icon.png");
     let image = ImageReader::new(Cursor::new(image_bytes))
         .with_guessed_format()?
         .decode()?

@@ -18,7 +18,7 @@ serde_yaml = "0.9.34"
 [package.metadata.bundle]
 name = "Egui App" # 你的應用名稱
 identifier = "com.example.eguiapp" # 你的應用 ID (通常是反向網域名稱)
-icon = ["assets/icon.icns"] # macOS `.icns` 圖示 (選填)
+icon = ["assets/icon.png"] # macOS `.icns` 圖示 (選填)
 resources = ["assets/NotoSansTC-Medium.ttf"]
 category = "public.app-category.utilities"
 short_description = "A simple Egui application"
