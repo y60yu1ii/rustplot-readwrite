@@ -1,5 +1,6 @@
-mod font_loader; // 引入字型模組
-mod save_load; // 引入 YAML 存取模組
+#![windows_subsystem = "windows"]
+mod font_loader;
+mod save_load;
 
 use eframe::egui;
 use egui_plot::{Line, Plot, PlotPoints};
@@ -145,23 +146,25 @@ impl eframe::App for MyApp {
             ui.separator();
             ui.heading("即時數據圖表");
 
-            // ✅ 顯示 10 個圖表（前 4 個為三角波，後 6 個為 Sin 波）
-            for (index, graph) in self.graphs.iter().enumerate() {
-                let label = match graph.graph_type {
-                    GraphType::Triangle => format!("圖表 {} (三角波)", index + 1),
-                    GraphType::SinWave => format!("圖表 {} (Sin 波)", index + 1),
-                };
-                ui.label(label);
+            // ✅ 用 ScrollArea 來讓圖表可以滾動
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                for (index, graph) in self.graphs.iter().enumerate() {
+                    let label = match graph.graph_type {
+                        GraphType::Triangle => format!("圖表 {} (三角波)", index + 1),
+                        GraphType::SinWave => format!("圖表 {} (Sin 波)", index + 1),
+                    };
+                    ui.label(label);
 
-                Plot::new(format!("real_time_plot_{}", index))
-                    .height(100.0)
-                    .show(ui, |plot_ui| {
-                        let line = Line::new(PlotPoints::from_iter(
-                            graph.data.iter().map(|&(x, y)| [x, y]), // ✅ 轉換成 `[f64; 2]`
-                        ));
-                        plot_ui.line(line);
-                    });
-            }
+                    Plot::new(format!("real_time_plot_{}", index))
+                        .height(120.0) // ✅ 調高單個圖表高度，避免擠在一起
+                        .show(ui, |plot_ui| {
+                            let line = Line::new(PlotPoints::from_iter(
+                                graph.data.iter().map(|&(x, y)| [x, y]), // ✅ 轉換成 `[f64; 2]`
+                            ));
+                            plot_ui.line(line);
+                        });
+                }
+            });
         });
 
         ctx.request_repaint_after(Duration::from_millis(16));
@@ -170,7 +173,7 @@ impl eframe::App for MyApp {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut options = eframe::NativeOptions::default();
-    options.viewport.inner_size = Some([800.0, 1300.0].into()); // ✅ 放大視窗大小
+    options.viewport.inner_size = Some([800.0, 900.0].into()); // ✅ 改小視窗大小，測試 ScrollBar
 
     eframe::run_native(
         "時間數據圖表",
