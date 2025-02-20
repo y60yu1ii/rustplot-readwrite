@@ -1,73 +1,17 @@
 #![windows_subsystem = "windows"]
 mod font_loader;
-mod save_load;
+mod graph;
+mod save_load; // ✅ 引入 `graph.rs`
 
 use eframe::egui;
 use egui_plot::{Line, Plot, PlotPoints};
-use rand::Rng;
+use graph::{Graph, GraphType}; // ✅ 使用 Graph 模組
 use rfd::FileDialog;
 use save_load::DataConfig;
-use std::f64::consts::PI;
 use std::time::{Duration, Instant};
 
 const NUM_TRIANGLE_GRAPHS: usize = 4; // ✅ 4 個遞增遞減波
 const NUM_SIN_GRAPHS: usize = 6; // ✅ 6 個 Sin 波
-
-enum GraphType {
-    Triangle,
-    SinWave,
-}
-
-struct Graph {
-    data: Vec<(f64, f64)>,
-    graph_type: GraphType,
-    increasing: bool,
-    i: f64,
-    max_value: f64,
-    frequency: f64, // ✅ Sin 波的隨機頻率
-}
-
-impl Graph {
-    fn new(graph_type: GraphType) -> Self {
-        let mut rng = rand::thread_rng();
-        Self {
-            data: Vec::new(),
-            graph_type,
-            increasing: true,
-            i: 0.0,
-            max_value: rng.gen_range(100.0..255.0), // ✅ 產生隨機最大值
-            frequency: rng.gen_range(0.5..2.0),     // ✅ 產生隨機 Sin 波頻率
-        }
-    }
-
-    fn update(&mut self, elapsed: f64) {
-        match self.graph_type {
-            GraphType::Triangle => {
-                if self.increasing {
-                    self.i += 1.0;
-                    if self.i >= self.max_value {
-                        self.increasing = false;
-                    }
-                } else {
-                    self.i -= 1.0;
-                    if self.i <= 0.0 {
-                        self.increasing = true;
-                        let mut rng = rand::thread_rng();
-                        self.max_value = rng.gen_range(100.0..255.0); // ✅ 重新產生隨機最大值
-                    }
-                }
-            }
-            GraphType::SinWave => {
-                self.i = (elapsed * self.frequency * 2.0 * PI).sin() * self.max_value;
-                // ✅ Sin 波
-            }
-        }
-
-        // 限制最多顯示最近 10 秒的數據
-        self.data.push((elapsed, self.i));
-        self.data.retain(|&(x, _)| elapsed - x < 10.0);
-    }
-}
 
 struct MyApp {
     config: DataConfig,
