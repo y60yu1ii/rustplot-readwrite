@@ -1,0 +1,7 @@
+magick assets/icon.png -resize 256x256 assets/icon.ico
+<<<<<<< HEAD
+
+=======
+IDI_ICON1 ICON "assets/icon.ico"
+windres assets/app.rc -O coff -o assets/app.res
+>>>>>>> 58162b3fb0f71b44ffbfd0e5d1b5ee0280831e90

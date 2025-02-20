@@ -1025,6 +1025,7 @@ name = "egui-app"
 version = "0.1.0"
 dependencies = [
  "bitflags 2.8.0",
+ "cc",
  "dirs",
  "eframe",
  "egui_plot",
