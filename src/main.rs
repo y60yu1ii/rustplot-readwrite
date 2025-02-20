@@ -29,14 +29,14 @@ struct Graph {
 
 impl Graph {
     fn new(graph_type: GraphType) -> Self {
-        let mut rng = rand::rng();
+        let mut rng = rand::thread_rng();
         Self {
             data: Vec::new(),
             graph_type,
             increasing: true,
             i: 0.0,
-            max_value: rng.random_range(100.0..255.0), // ✅ 產生隨機最大值
-            frequency: rng.random_range(0.5..2.0),     // ✅ 產生隨機 Sin 波頻率
+            max_value: rng.gen_range(100.0..255.0), // ✅ 產生隨機最大值
+            frequency: rng.gen_range(0.5..2.0),     // ✅ 產生隨機 Sin 波頻率
         }
     }
 
@@ -52,8 +52,8 @@ impl Graph {
                     self.i -= 1.0;
                     if self.i <= 0.0 {
                         self.increasing = true;
-                        let mut rng = rand::rng();
-                        self.max_value = rng.random_range(100.0..255.0); // ✅ 重新產生隨機最大值
+                        let mut rng = rand::thread_rng();
+                        self.max_value = rng.gen_range(100.0..255.0); // ✅ 重新產生隨機最大值
                     }
                 }
             }
@@ -157,6 +157,9 @@ impl eframe::App for MyApp {
 
                     Plot::new(format!("real_time_plot_{}", index))
                         .height(120.0) // ✅ 調高單個圖表高度，避免擠在一起
+                        .allow_scroll(false) // ❌ 禁止滑鼠滾動影響 Plot
+                        .allow_drag(false) // ❌ 禁止拖動
+                        .allow_zoom(false) // ❌ 禁止縮放
                         .show(ui, |plot_ui| {
                             let line = Line::new(PlotPoints::from_iter(
                                 graph.data.iter().map(|&(x, y)| [x, y]), // ✅ 轉換成 `[f64; 2]`
