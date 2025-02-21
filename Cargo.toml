@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 bitflags = "2.8.0"
+cc = "1.2.14"
 dirs = "6.0.0"
 eframe = { version = "0.31.0", features = ["persistence", "glow", "accesskit"] }
 egui_plot = "0.31.0"
