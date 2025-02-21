@@ -5,24 +5,34 @@ mod save_load;
 use eframe::{egui, NativeOptions};
 use egui::{IconData, ViewportBuilder};
 use image::ImageReader;
-use rand::Rng;
+use regex::Regex;
 use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::fs;
 use std::io::Cursor;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::Duration;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct UIConfig {
     components: Vec<UIComponent>,
+    canbus_config: Vec<CanBusConfig>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct CanBusConfig {
+    key: String,
+    id: u32,
+    index: u8,
+    len: u8,
+    endian: u8,
+    r#type: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "PascalCase")] // ✅ 確保 YAML `type` 正確
+#[serde(tag = "type", rename_all = "PascalCase")]
 enum UIComponent {
     Label {
         key: String,
@@ -36,25 +46,27 @@ enum UIComponent {
     Input {
         label: String,
     },
+    Graph {
+        key: String,
+    },
 }
 
 impl Default for UIConfig {
     fn default() -> Self {
         Self {
-            components: vec![
-                UIComponent::Label {
-                    key: "default_lb".to_string(),
-                    text: Some("預設標籤".to_string()),
-                    unit: Some("unit".to_string()),
-                },
-                UIComponent::Button {
-                    key: "default_btn".to_string(),
-                    text: "預設按鈕".to_string(),
-                },
-                UIComponent::Input {
-                    label: "預設輸入".to_string(),
-                },
-            ],
+            components: vec![UIComponent::Label {
+                key: "lb0".to_string(),
+                text: Some("預設標籤".to_string()),
+                unit: Some("unit".to_string()),
+            }],
+            canbus_config: vec![CanBusConfig {
+                key: "lb0".to_string(),
+                id: 0x00,
+                index: 0,
+                len: 2,
+                endian: 0,
+                r#type: "float32".to_string(),
+            }],
         }
     }
 }
@@ -62,7 +74,8 @@ impl Default for UIConfig {
 struct MyApp {
     config: UIConfig,
     config_path: Option<PathBuf>,
-    label_data: Arc<Mutex<HashMap<String, f64>>>, // ✅ 儲存 Label 數據
+    label_data: Arc<Mutex<HashMap<String, f64>>>,
+    graph_data: Arc<Mutex<HashMap<String, VecDeque<[f64; 2]>>>>,
 }
 
 impl MyApp {
@@ -76,42 +89,96 @@ impl MyApp {
             UIConfig::default()
         };
 
-        let label_data = Arc::new(Mutex::new(HashMap::new()));
+        let data_store = Arc::new(Mutex::new(HashMap::new())); // ✅ This will be our main data storage
+        let graph_data = Arc::new(Mutex::new(HashMap::new()));
 
         let mut app = Self {
             config,
             config_path,
-            label_data: label_data.clone(),
+            label_data: data_store.clone(),
+            graph_data: graph_data.clone(),
         };
 
-        app.initialize_label_data(); // ✅ 初始化 Label 數據
-        app.start_data_update_loop(label_data, ctx.clone()); // ✅ 啟動數據更新
+        app.initialize_data_store();
+        app.initialize_label_data();
+        app.start_data_update_loop(
+            app.config.canbus_config.clone(),
+            data_store,
+            graph_data,
+            ctx.clone(),
+        ); // ✅ Start updating
+
         app
     }
 
     fn initialize_label_data(&mut self) {
         let mut label_data = self.label_data.lock().unwrap();
+        let mut graph_data = self.graph_data.lock().unwrap();
+
         for component in &self.config.components {
-            if let UIComponent::Label { key, .. } = component {
-                label_data.entry(key.clone()).or_insert(0.0); // ✅ 設定預設值
+            match component {
+                UIComponent::Label { key, .. } | UIComponent::Graph { key } => {
+                    label_data.entry(key.clone()).or_insert(0.0);
+                    graph_data
+                        .entry(key.clone())
+                        .or_insert_with(|| VecDeque::with_capacity(200));
+                }
+                _ => {}
             }
+        }
+
+        for canbus in &self.config.canbus_config {
+            label_data.entry(canbus.key.clone()).or_insert(0.0);
+        }
+    }
+
+    fn initialize_data_store(&mut self) {
+        let mut data_store = self.label_data.lock().unwrap();
+        let mut graph_store = self.graph_data.lock().unwrap();
+
+        for canbus in &self.config.canbus_config {
+            data_store.entry(canbus.key.clone()).or_insert(0.0);
+            graph_store
+                .entry(canbus.key.clone())
+                .or_insert_with(|| VecDeque::with_capacity(200));
         }
     }
 
     fn start_data_update_loop(
         &mut self,
-        label_data: Arc<Mutex<HashMap<String, f64>>>,
+        canbus_config: Vec<CanBusConfig>,
+        data_store: Arc<Mutex<HashMap<String, f64>>>,
+        graph_data: Arc<Mutex<HashMap<String, VecDeque<[f64; 2]>>>>,
         ctx: egui::Context,
     ) {
-        thread::spawn(move || loop {
-            thread::sleep(Duration::from_secs(1));
-            let mut rng = rand::rng();
-            let mut data_lock = label_data.lock().unwrap();
+        std::thread::spawn(move || loop {
+            std::thread::sleep(std::time::Duration::from_millis(100));
 
-            for key in data_lock.keys().cloned().collect::<Vec<String>>() {
-                let value = rng.random_range(50.0..500.0);
+            let elapsed_time = ctx.input(|i| i.time);
 
-                data_lock.insert(key, value);
+            {
+                let mut data_lock = data_store.lock().unwrap();
+                let mut graph_lock = graph_data.lock().unwrap();
+
+                for config in &canbus_config {
+                    let key = config.key.clone();
+
+                    let idx = extract_number(&key).unwrap_or(0) as f64;
+
+                    let value = data_lock.entry(key.clone()).or_insert(idx);
+                    let sign = if rand::random() { 1.0 } else { -1.0 };
+                    *value += idx * sign;
+
+                    let entry = graph_lock
+                        .entry(key.clone())
+                        .or_insert_with(|| VecDeque::with_capacity(200));
+
+                    entry.push_back([elapsed_time, *value]);
+
+                    if entry.len() > 200 {
+                        entry.pop_front();
+                    }
+                }
             }
 
             ctx.request_repaint();
@@ -187,8 +254,30 @@ impl MyApp {
     }
 
     fn show_ui_from_config(&mut self, ui: &mut egui::Ui) {
+        let mut graph_count = HashMap::new();
         for component in &self.config.components {
             match component {
+                UIComponent::Graph { key } => {
+                    use egui_plot::{Line, Plot, PlotPoints};
+
+                    let count = graph_count.entry(key.clone()).or_insert(0);
+                    *count += 1; // Increment the count for this key
+
+                    let unique_id = format!("graph_{}_{}", key, count); // Unique ID per instance
+
+                    let data_points = {
+                        let graph_data = self.graph_data.lock().unwrap();
+                        graph_data.get(key).cloned().unwrap_or_default()
+                    };
+
+                    if !data_points.is_empty() {
+                        Plot::new(unique_id).height(120.0).show(ui, |plot_ui| {
+                            let line =
+                                Line::new(PlotPoints::from_iter(data_points.iter().copied()));
+                            plot_ui.line(line);
+                        });
+                    }
+                }
                 UIComponent::Label { key, text, unit } => {
                     let value = {
                         let data = self.label_data.lock().unwrap();
@@ -267,4 +356,13 @@ fn load_icon() -> Result<IconData, Box<dyn std::error::Error>> {
         width,
         height,
     })
+}
+
+fn extract_number(key: &str) -> Option<u32> {
+    let re = Regex::new(r"lb(\d+)").unwrap();
+    if let Some(captures) = re.captures(key) {
+        captures.get(1)?.as_str().parse::<u32>().ok()
+    } else {
+        None
+    }
 }

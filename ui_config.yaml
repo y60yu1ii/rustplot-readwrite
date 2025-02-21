@@ -4,15 +4,61 @@ components:
     text: "Label #1"
     unit: "lpm"
   - type: Label
-    key: lb3
+    key: lb2
     unit: "m/s"
   - type: Label
-    key: lb2
+    key: lb3
     text: "Flow Rate"
     unit: "m³/s"
+  - type: Graph
+    key: lb1
+  - type: Graph
+    key: lb2
+  - type: Graph
+    key: lb3
+  - type: Graph
+    key: lb1
   - type: Button
-    key: key1
+    key: lb5
     text: "key1"
   - type: Button
-    key: key2
+    key: lb6
     text: "key2"
+
+canbus_config:
+  - key: lb1
+    id: 0x01
+    index: 0
+    len: 2
+    endian: 0
+    type: float32
+  - key: lb2
+    id: 0x01
+    index: 2
+    len: 2
+    endian: 0
+    type: int32
+  - key: lb3
+    id: 0x01
+    index: 4
+    len: 2
+    endian: 0
+    type: int32
+  - key: lb4
+    id: 0x01
+    index: 6
+    len: 2
+    endian: 0
+    type: int32
+  - key: lb5
+    id: 0x02
+    index: 0
+    len: 1
+    endian: 0
+    type: int
+  - key: lb6
+    id: 0x02
+    index: 1
+    len: 1
+    endian: 0
+    type: int
